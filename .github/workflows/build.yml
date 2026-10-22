@@ -8,7 +8,7 @@ on:
 jobs:
   # ==================== Job 1: 编译内核 ====================
   kernel:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 120
     steps:
       - name: Checkout
@@ -17,9 +17,12 @@ jobs:
       - name: Install kernel build deps
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq \
-            gcc-8 g++-8 gcc-8-aarch64-linux-gnu \
-            make bc bison flex cpio libssl-dev libelf-dev python3 git
+          sudo apt-get install -y -qq make bc bison flex cpio libssl-dev libelf-dev python3 git
+          # ubuntu-22.04 仓库无 gcc-8，从 focal 源取 aarch64 交叉编译器
+          echo "deb http://archive.ubuntu.com/ubuntu focal main universe" | sudo tee /etc/apt/sources.list.d/focal.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-8-aarch64-linux-gnu cpp-8-aarch64-linux-gnu
+          aarch64-linux-gnu-gcc-8 --version | head -1
 
       - name: Clone kernel source
         run: |
@@ -39,7 +42,7 @@ jobs:
       - name: Configure + build kernel
         run: |
           cd kernel
-          export ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=aarch64-linux-gnu-gcc-8 HOSTCC=gcc-8
+          export ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=aarch64-linux-gnu-gcc-8 HOSTCC=gcc
           make O=out mt6853_defconfig
           sed -i -E '
             s/^CONFIG_MTK_IMGSENSOR=y/# CONFIG_MTK_IMGSENSOR is not set/
