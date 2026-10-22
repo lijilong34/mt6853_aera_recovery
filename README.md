@@ -1,4 +1,4 @@
-# AERA Recovery for mt6853 (OPPO PLQ110 / ossi) — 移植
+# AERA Recovery for mt6853 (OPPO PECM30 / ossi) — 移植
 
 用 **AERA 官方源码**（`AERA-Recovery/android_manifest` 的 `aera-16.0` 分支）为 mt6853 构建 AERA Recovery。
 
