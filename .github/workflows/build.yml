@@ -141,9 +141,14 @@ jobs:
         run: |
           cd ~/aera
           source build/envsetup.sh
-          # AERA 的 product 名沿用 twrp_<device>，AERA 定制配置由 device.mk
-          # inherit aera_mt6853.mk 生效（见 AERA 官方 lighthouse 设备树）
-          lunch twrp_mt6853-eng
+          # AOSP16 的 lunch 要求 <product>-<release>-<variant> 三段式，
+          # 从 lunch 列表里自动挑出 mt6853 的目标，避免格式硬编码
+          echo "=== 可用 mt6853 目标 ==="
+          lunch 2>&1 | grep -iE 'mt6853' | head -10
+          TARGET=$(lunch 2>&1 | grep -oE '[A-Za-z0-9_]*mt6853[A-Za-z0-9_.-]*' | sort -u | head -1)
+          if [ -z "$TARGET" ]; then echo "ERROR: 没找到 mt6853 的 lunch 目标"; exit 1; fi
+          echo "选中目标: $TARGET"
+          lunch "$TARGET"
           mka recoveryimage -j$(nproc)
           echo "=== AERA 构建成功 ==="
 
