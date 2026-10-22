@@ -32,9 +32,12 @@ jobs:
           git clone --depth=1 -b android-12 \
             https://github.com/lijilong34/android_kernel_oppo_mt6853.git kernel
 
-      - name: Patch kernel (fix illegal inline + weak fn)
+      - name: Patch kernel (illegal inline / weak fn / cameraisp hardcoded obj-y)
         run: |
           cd kernel
+          # cameraisp 是 obj-y 硬编码，不受 CONFIG_MTK_CAMERA_ISP 控制；关配置后仍编译会链接失败
+          sed -i 's|^obj-y += cameraisp/|obj-$(CONFIG_MTK_CAMERA_ISP) += cameraisp/|' drivers/misc/mediatek/Makefile
+          grep -n 'cameraisp' drivers/misc/mediatek/Makefile
           sed -i 's/^inline void ksm_flock(/void ksm_flock(/' include/linux/keyslot-manager.h
           sed -i 's/^inline void blk_crypto_flock(/void blk_crypto_flock(/' include/linux/blk-crypto.h
           sed -i 's/^__attribute__((weak)) int register_lcdinfo_notifier() {/__attribute__((weak)) int register_lcdinfo_notifier(struct notifier_block *nb) {/' \
