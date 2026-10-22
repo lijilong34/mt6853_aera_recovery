@@ -186,7 +186,10 @@ jobs:
             export TARGET_PRODUCT=twrp_mt6853
             export TARGET_RELEASE=$R
             export TARGET_BUILD_VARIANT=eng
-            m recoveryimage -j$(nproc) > /tmp/aera_build_$R.log 2>&1
+            # GitHub 免费 runner 只有 7GB 内存，AOSP16 soong 用 -j4 会 OOM(143)
+            # 降到 -j2，并关闭 ccache 的多余内存占用
+            export USE_CCACHE=0
+            m recoveryimage -j2 > /tmp/aera_build_$R.log 2>&1
             rc=$?
             tail -20 /tmp/aera_build_$R.log
             if [ $rc -eq 0 ]; then
