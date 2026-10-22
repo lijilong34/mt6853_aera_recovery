@@ -1,0 +1,5 @@
+//
+// AERA Recovery device tree for mt6853
+//
+soong_namespace {
+}

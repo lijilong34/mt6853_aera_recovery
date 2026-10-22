@@ -25,7 +25,7 @@
 - `repo init -u https://github.com/AERA-Recovery/android_manifest.git -b aera-16.0`
 - `repo sync`（AOSP 16 + AERA 仓库）
 - 注入本仓库设备树到 `device/oppo/mt6853`，内核放 `prebuilt/kernel`
-- `lunch aera_mt6853-eng && mka recoveryimage`（**仅 AERA，无任何回退**）
+- `lunch twrp_mt6853-eng && mka recoveryimage`（**AERA 官方入口**：product 名沿用 twrp_*，AERA 定制由 device.mk inherit `aera_mt6853.mk` 生效，见 AERA 官方 lighthouse 设备树）
 
 ## 设备树
 

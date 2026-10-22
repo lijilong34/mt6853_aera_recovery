@@ -137,11 +137,13 @@ jobs:
           echo "=== 含 mt6853 / aera 的 lunch 目标 ==="
           lunch 2>&1 | grep -iE 'mt6853|aera' | head -20 || true
 
-      - name: Build AERA recovery (仅 AERA，无回退)
+      - name: Build AERA recovery
         run: |
           cd ~/aera
           source build/envsetup.sh
-          lunch aera_mt6853-eng
+          # AERA 的 product 名沿用 twrp_<device>，AERA 定制配置由 device.mk
+          # inherit aera_mt6853.mk 生效（见 AERA 官方 lighthouse 设备树）
+          lunch twrp_mt6853-eng
           mka recoveryimage -j$(nproc)
           echo "=== AERA 构建成功 ==="
 
