@@ -143,11 +143,17 @@ jobs:
           source build/envsetup.sh
           # AOSP16 的 lunch 要求 <product>-<release>-<variant> 三段式，
           # 从 lunch 列表里自动挑出 mt6853 的目标，避免格式硬编码
-          echo "=== lunch 完整列表 ==="
-          lunch </dev/null 2>&1 | head -80 || true
-          echo "=== 直接尝试三段式目标 ==="
+          echo "=== release_configs 目录 ==="
+          ls build/release/release_configs/ 2>/dev/null | head -20 || echo "(目录不存在)"
+          RELEASE=$(ls build/release/release_configs/*.mk 2>/dev/null | head -1 | sed 's|.*/||;s|\.mk$||')
+          if [ -z "$RELEASE" ]; then
+            RELEASE=$(ls build/release/release_configs/ 2>/dev/null | head -1 | sed 's|\.mk$||')
+          fi
+          if [ -z "$RELEASE" ]; then RELEASE=trunk; fi
+          echo "使用 release: $RELEASE"
+          echo "=== lunch ==="
           set -x
-          lunch twrp_mt6853-trunk_staging-eng </dev/null
+          lunch "twrp_mt6853-${RELEASE}-eng" </dev/null
           set +x
           mka recoveryimage -j$(nproc)
           echo "=== AERA 构建成功 ==="
