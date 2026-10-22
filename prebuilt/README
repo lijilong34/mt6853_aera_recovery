@@ -1,0 +1,5 @@
+kernel Image (mt6853_defconfig) - build from
+github.com/lijilong34/android_kernel_oppo_mt6853 @ android-12
+make O=out ARCH=arm64 mt6853_defconfig
+cp out/arch/arm64/boot/Image  ->  prebuilt/kernel
+

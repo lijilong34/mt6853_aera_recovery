@@ -1,0 +1,153 @@
+name: Build AERA Recovery (mt6853)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  # ==================== Job 1: 编译内核 ====================
+  kernel:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kernel build deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            gcc-8 g++-8 gcc-8-aarch64-linux-gnu \
+            make bc bison flex cpio libssl-dev libelf-dev python3 git
+
+      - name: Clone kernel source
+        run: |
+          git clone --depth=1 -b android-12 \
+            https://github.com/lijilong34/android_kernel_oppo_mt6853.git kernel
+
+      - name: Patch kernel (fix illegal inline + weak fn)
+        run: |
+          cd kernel
+          sed -i 's/^inline void ksm_flock(/void ksm_flock(/' include/linux/keyslot-manager.h
+          sed -i 's/^inline void blk_crypto_flock(/void blk_crypto_flock(/' include/linux/blk-crypto.h
+          sed -i 's/^__attribute__((weak)) int register_lcdinfo_notifier() {/__attribute__((weak)) int register_lcdinfo_notifier(struct notifier_block *nb) {/' \
+            drivers/misc/mediatek/sensor/2.0/oplus_sensor_devinfo/sensor_devinfo.c
+          sed -i 's/^__attribute__((weak)) int unregister_lcdinfo_notifier() {/__attribute__((weak)) int unregister_lcdinfo_notifier(struct notifier_block *nb) {/' \
+            drivers/misc/mediatek/sensor/2.0/oplus_sensor_devinfo/sensor_devinfo.c
+
+      - name: Configure + build kernel
+        run: |
+          cd kernel
+          export ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=aarch64-linux-gnu-gcc-8 HOSTCC=gcc-8
+          make O=out mt6853_defconfig
+          sed -i -E '
+            s/^CONFIG_MTK_IMGSENSOR=y/# CONFIG_MTK_IMGSENSOR is not set/
+            s/^CONFIG_MTK_LENS=y/# CONFIG_MTK_LENS is not set/
+            s/^CONFIG_CUSTOM_KERNEL_IMGSENSOR=.*/# CONFIG_CUSTOM_KERNEL_IMGSENSOR is not set/
+            s/^CONFIG_MTK_CAMERA_ISP=y/# CONFIG_MTK_CAMERA_ISP is not set/
+            s/^CONFIG_MTK_COMBO_BT=y/# CONFIG_MTK_COMBO_BT is not set/
+            s/^CONFIG_MTK_COMBO_GPS=y/# CONFIG_MTK_COMBO_GPS is not set/
+            s/^CONFIG_IKHEADERS=y/# CONFIG_IKHEADERS is not set/
+          ' out/.config
+          make O=out olddefconfig
+          echo "=== 关键启动配置（必须全 =y）==="
+          grep -E '^(CONFIG_RELOCATABLE|CONFIG_RANDOMIZE_BASE|CONFIG_MTK_COMBO_WIFI|CONFIG_ARM64_MODULE_PLTS)=' out/.config
+          make O=out -j$(nproc) Image.gz
+          ls -la out/arch/arm64/boot/Image.gz
+
+      - name: Upload kernel
+        uses: actions/upload-artifact@v4
+        with:
+          name: mt6853-kernel
+          path: kernel/out/arch/arm64/boot/Image.gz
+          retention-days: 30
+
+  # ==================== Job 2: AERA Recovery ====================
+  recovery:
+    needs: kernel
+    runs-on: ubuntu-22.04
+    timeout-minutes: 300
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install AOSP build deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            git python3 python3-pip openjdk-11-jdk-headless \
+            bc bison flex libssl-dev libelf-dev zip unzip curl \
+            gcc g++ make libncurses5 libtinfo5 rsync ccache \
+            zlib1g-dev libxml2-utils xsltproc imagemagick
+
+      - name: Download kernel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mt6853-kernel
+          path: kernel-out
+
+      - name: Install repo
+        run: |
+          mkdir -p ~/bin
+          curl -s https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+          chmod a+x ~/bin/repo
+          echo "$HOME/bin" >> $GITHUB_PATH
+          git config --global user.name "ci"
+          git config --global user.email "ci@ci"
+          git config --global color.ui false
+
+      - name: Init AERA manifest (aera-16.0)
+        run: |
+          mkdir -p ~/aera && cd ~/aera
+          repo init -u https://github.com/AERA-Recovery/android_manifest.git -b aera-16.0 --depth=1
+          sed -n '1,15p' .repo/manifests/default.xml
+
+      - name: Sync AERA source
+        run: |
+          cd ~/aera
+          repo sync -c -j$(nproc) --no-clone-bundle --no-tags --force-sync
+          echo "=== synced ==="
+          ls
+
+      - name: Inject mt6853 device tree + kernel
+        run: |
+          cd ~/aera
+          mkdir -p device/oppo
+          cp -r $GITHUB_WORKSPACE device/oppo/mt6853
+          rm -rf device/oppo/mt6853/.git device/oppo/mt6853/.github
+          mkdir -p device/oppo/mt6853/prebuilt
+          cp $GITHUB_WORKSPACE/kernel-out/Image.gz device/oppo/mt6853/prebuilt/kernel
+          ls -la device/oppo/mt6853/prebuilt/
+
+      - name: Show available lunch targets
+        run: |
+          cd ~/aera
+          source build/envsetup.sh
+          echo "=== 含 mt6853 / aera 的 lunch 目标 ==="
+          lunch 2>&1 | grep -iE 'mt6853|aera' | head -20 || true
+
+      - name: Build AERA recovery (仅 AERA，无回退)
+        run: |
+          cd ~/aera
+          source build/envsetup.sh
+          lunch aera_mt6853-eng
+          mka recoveryimage -j$(nproc)
+          echo "=== AERA 构建成功 ==="
+
+      - name: Collect recovery image
+        if: always()
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/out-img
+          find ~/aera/out/target/product -maxdepth 3 \( -name "recovery.img" -o -name "RECOVERY_FROM_BOOT" \) \
+            -exec cp {} $GITHUB_WORKSPACE/out-img/ \; 2>/dev/null
+          ls -la $GITHUB_WORKSPACE/out-img/ || echo "无产物"
+
+      - name: Upload recovery
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mt6853-aera-recovery
+          path: out-img/
+          retention-days: 30
+          if-no-files-found: warn
