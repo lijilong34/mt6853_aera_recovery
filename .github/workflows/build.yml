@@ -176,6 +176,16 @@ jobs:
       - name: Build AERA recovery
         run: |
           cd ~/aera
+          # 在 envsetup/soong 扫描 product 之前，确保 product 已注册进 AOSP 自带入口
+          PD=build/make/target/product
+          cp device/oppo/mt6853/twrp_mt6853.mk $PD/twrp_mt6853.mk
+          AP=$PD/AndroidProducts.mk
+          if ! grep -q 'twrp_mt6853.mk' "$AP"; then
+            printf '%s\n' 'PRODUCT_MAKEFILES += $(LOCAL_DIR)/twrp_mt6853.mk' >> "$AP"
+          fi
+          echo "--- 注册确认 ---"
+          grep -n 'twrp_mt6853' "$AP" | head -3
+          ls -la $PD/twrp_mt6853.mk
           source build/envsetup.sh
           # AOSP16 的 lunch 要求 <product>-<release>-<variant> 三段式
           echo "=== release_configs 目录 ==="
