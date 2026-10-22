@@ -18,8 +18,6 @@ BUILD_BROKEN_ELF_PREBUILT_PRODUCT_COPY_FILES := true
 
 # Shipping API level (stock: A16 / API 36)
 BOARD_SHIPPING_API_LEVEL := 36
-PRODUCT_SHIPPING_API_LEVEL := 36
-PRODUCT_TARGET_VNDK_VERSION := 36
 
 # Architecture
 TARGET_ARCH := arm64
@@ -106,7 +104,6 @@ AB_OTA_PARTITIONS += \
     my_region \
     my_stock
 
-PRODUCT_USE_DYNAMIC_PARTITIONS := true
 
 # Verified Boot
 BOARD_AVB_ENABLE := true
