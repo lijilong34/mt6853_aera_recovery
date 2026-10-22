@@ -123,22 +123,29 @@ jobs:
       - name: Inject mt6853 device tree + kernel
         run: |
           cd ~/aera
-          mkdir -p device/oppo/mt6853
-          # 只同步设备树文件，排除 .git / .github / kernel 编译目录
-          rsync -a --delete             --exclude='.git' --exclude='.github' --exclude='kernel'             --exclude='kernel-out' --exclude='out-img' --exclude='*.zip'             $GITHUB_WORKSPACE/ device/oppo/mt6853/
-          mkdir -p device/oppo/mt6853/prebuilt
-          cp $GITHUB_WORKSPACE/kernel-out/Image.gz device/oppo/mt6853/prebuilt/kernel
-          echo "=== device tree ==="
-          ls -la device/oppo/mt6853/
-          echo "=== AndroidProducts.mk ==="
-          cat device/oppo/mt6853/AndroidProducts.mk
-          echo "=== 目标 mk 是否存在 ==="
-          ls -la device/oppo/mt6853/twrp_mt6853.mk || echo "MISSING twrp_mt6853.mk"
-          echo "=== AOSP 自己的搜索能否找到 AndroidProducts.mk ==="
-          find device vendor -maxdepth 6 -name AndroidProducts.mk 2>/dev/null | grep -i mt6853 || echo "AOSP find 找不到 mt6853 的 AndroidProducts.mk"
-          echo "=== vendor/twrp 是否 sync 到 ==="
-          ls -d vendor/twrp vendor/recovery 2>/dev/null || echo "vendor/twrp 与 vendor/recovery 都不存在"
-          ls vendor/twrp/config/common.mk 2>/dev/null || echo "vendor/twrp/config/common.mk 不存在"
+          D=device/oppo/mt6853
+          rm -rf $D
+          mkdir -p $D/prebuilt
+          # 显式逐文件复制设备树，避免任何 exclude 规则误伤
+          for f in AndroidProducts.mk Android.bp Android.mk BoardConfig.mk device.mk \
+                   twrp_mt6853.mk aera_mt6853.mk vendorsetup.sh recovery.fstab vendor.prop; do
+            if [ -f "$GITHUB_WORKSPACE/$f" ]; then
+              cp "$GITHUB_WORKSPACE/$f" $D/
+            else
+              echo "NOTE: $f 不存在于仓库"
+            fi
+          done
+          for d in recovery security; do
+            [ -d "$GITHUB_WORKSPACE/$d" ] && cp -a "$GITHUB_WORKSPACE/$d" $D/
+          done
+          cp $GITHUB_WORKSPACE/kernel-out/Image.gz $D/prebuilt/kernel
+          chmod +x $D/vendorsetup.sh
+          echo "=== $D ==="
+          ls -la $D
+          echo "=== PRODUCT_MAKEFILES 指向的文件 ==="
+          ls -la $D/twrp_mt6853.mk
+          echo "=== AOSP find ==="
+          find device -maxdepth 6 -name AndroidProducts.mk
           echo "=== prebuilt ==="
           ls -la device/oppo/mt6853/prebuilt/
 
@@ -152,21 +159,6 @@ jobs:
       - name: Build AERA recovery
         run: |
           cd ~/aera
-          echo "########## 设备树自检 ##########"
-          echo "--- device/oppo/mt6853 内容 ---"
-          ls -la device/oppo/mt6853/ 2>/dev/null | head -25
-          echo "--- AndroidProducts.mk 内容 ---"
-          cat device/oppo/mt6853/AndroidProducts.mk 2>/dev/null || echo "MISSING AndroidProducts.mk"
-          echo "--- twrp_mt6853.mk 是否存在 ---"
-          ls -la device/oppo/mt6853/twrp_mt6853.mk 2>/dev/null || echo "MISSING twrp_mt6853.mk"
-          echo "--- AOSP find 能否搜到 ---"
-          find device vendor -maxdepth 6 -name AndroidProducts.mk 2>/dev/null || echo "find 失败"
-          echo "--- vendor/twrp / vendor/recovery ---"
-          ls -d vendor/twrp vendor/recovery 2>/dev/null || echo "两个 vendor 目录都不存在"
-          ls -la vendor/twrp/config/common.mk 2>/dev/null || echo "MISSING vendor/twrp/config/common.mk"
-          echo "--- envsetup 里的 device 路径 ---"
-          echo "T=$(gettop 2>/dev/null)"
-          echo "########## 自检结束 ##########"
           source build/envsetup.sh
           # AOSP16 的 lunch 要求 <product>-<release>-<variant> 三段式
           echo "=== release_configs 目录 ==="
