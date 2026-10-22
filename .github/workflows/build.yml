@@ -22,7 +22,10 @@ jobs:
           echo "deb http://archive.ubuntu.com/ubuntu focal main universe" | sudo tee /etc/apt/sources.list.d/focal.list
           sudo apt-get update -qq
           sudo apt-get install -y -qq gcc-8-aarch64-linux-gnu cpp-8-aarch64-linux-gnu
-          aarch64-linux-gnu-gcc-8 --version | head -1
+          # 内核 Makefile 用 CROSS_COMPILE=aarch64-linux-gnu- 找 aarch64-linux-gnu-gcc，focal 只有带版本号的
+          sudo ln -sf /usr/bin/aarch64-linux-gnu-gcc-8 /usr/bin/aarch64-linux-gnu-gcc
+          sudo ln -sf /usr/bin/aarch64-linux-gnu-cpp-8 /usr/bin/aarch64-linux-gnu-cpp 2>/dev/null || true
+          aarch64-linux-gnu-gcc --version | head -1
 
       - name: Clone kernel source
         run: |
@@ -42,8 +45,9 @@ jobs:
       - name: Configure + build kernel
         run: |
           cd kernel
-          export ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=aarch64-linux-gnu-gcc-8 HOSTCC=gcc
-          make O=out mt6853_defconfig
+          export ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
+          MKARGS="ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=aarch64-linux-gnu-gcc HOSTCC=gcc"
+          make O=out $MKARGS mt6853_defconfig
           sed -i -E '
             s/^CONFIG_MTK_IMGSENSOR=y/# CONFIG_MTK_IMGSENSOR is not set/
             s/^CONFIG_MTK_LENS=y/# CONFIG_MTK_LENS is not set/
@@ -53,10 +57,10 @@ jobs:
             s/^CONFIG_MTK_COMBO_GPS=y/# CONFIG_MTK_COMBO_GPS is not set/
             s/^CONFIG_IKHEADERS=y/# CONFIG_IKHEADERS is not set/
           ' out/.config
-          make O=out olddefconfig
+          make O=out $MKARGS olddefconfig
           echo "=== 关键启动配置（必须全 =y）==="
           grep -E '^(CONFIG_RELOCATABLE|CONFIG_RANDOMIZE_BASE|CONFIG_MTK_COMBO_WIFI|CONFIG_ARM64_MODULE_PLTS)=' out/.config
-          make O=out -j$(nproc) Image.gz
+          make O=out $MKARGS -j$(nproc) Image.gz
           ls -la out/arch/arm64/boot/Image.gz
 
       - name: Upload kernel
