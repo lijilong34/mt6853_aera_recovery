@@ -140,16 +140,23 @@ jobs:
           done
           cp $GITHUB_WORKSPACE/kernel-out/Image.gz $D/prebuilt/kernel
           chmod +x $D/vendorsetup.sh
-          # 直接改 AOSP 的 product 搜索函数，让 _find-android-products-files
-          # 一定返回我们的 AndroidProducts.mk（不依赖 find / LOCAL_DIR / 追加顺序）
-          PM=build/make/core/product.mk
-          echo "=== product.mk 里的搜索定义 ==="
-          grep -n -A4 '_find-android-products-files' "$PM" | head -12
-          if ! grep -q 'device/oppo/mt6853/AndroidProducts.mk' "$PM"; then
-            sed -i 's|\$(SRC_TARGET_DIR)/product/AndroidProducts.mk|$(SRC_TARGET_DIR)/product/AndroidProducts.mk device/oppo/mt6853/AndroidProducts.mk|' "$PM"
+          # AOSP16 的产品发现入口（已核对 AERA 的 build/make）：
+          #   core/product_config.mk 读取 $(OUT_DIR)/.module_paths/AndroidProducts.mk.list
+          #   + $(SRC_TARGET_DIR)/product/AndroidProducts.mk（一定会读）
+          # 后者末尾本身就有 PRODUCT_MAKEFILES += ...，我们照同样风格追加即可
+          PD=build/make/target/product
+          cp $D/twrp_mt6853.mk $PD/twrp_mt6853.mk
+          AP=$PD/AndroidProducts.mk
+          if ! grep -q 'twrp_mt6853.mk' "$AP"; then
+            printf '%s\n' 'PRODUCT_MAKEFILES += $(LOCAL_DIR)/twrp_mt6853.mk' >> "$AP"
+            printf '%s\n' 'COMMON_LUNCH_CHOICES += twrp_mt6853-trunk_staging-eng twrp_mt6853-trunk_staging-userdebug' >> "$AP"
           fi
-          echo "=== 修改后 ==="
-          grep -n -A4 '_find-android-products-files' "$PM" | head -12
+          echo "=== $AP 尾部 ==="
+          tail -5 "$AP"
+          echo "=== product_config.mk 的读取入口 ==="
+          grep -n 'AndroidProducts' build/make/core/product_config.mk | head -5
+          echo "=== 我们的 mk 是否就位 ==="
+          ls -la $PD/twrp_mt6853.mk
           echo "=== $D ==="
           ls -la $D
           echo "=== PRODUCT_MAKEFILES 指向的文件 ==="
