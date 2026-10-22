@@ -152,9 +152,23 @@ jobs:
       - name: Build AERA recovery
         run: |
           cd ~/aera
+          echo "########## 设备树自检 ##########"
+          echo "--- device/oppo/mt6853 内容 ---"
+          ls -la device/oppo/mt6853/ 2>/dev/null | head -25
+          echo "--- AndroidProducts.mk 内容 ---"
+          cat device/oppo/mt6853/AndroidProducts.mk 2>/dev/null || echo "MISSING AndroidProducts.mk"
+          echo "--- twrp_mt6853.mk 是否存在 ---"
+          ls -la device/oppo/mt6853/twrp_mt6853.mk 2>/dev/null || echo "MISSING twrp_mt6853.mk"
+          echo "--- AOSP find 能否搜到 ---"
+          find device vendor -maxdepth 6 -name AndroidProducts.mk 2>/dev/null || echo "find 失败"
+          echo "--- vendor/twrp / vendor/recovery ---"
+          ls -d vendor/twrp vendor/recovery 2>/dev/null || echo "两个 vendor 目录都不存在"
+          ls -la vendor/twrp/config/common.mk 2>/dev/null || echo "MISSING vendor/twrp/config/common.mk"
+          echo "--- envsetup 里的 device 路径 ---"
+          echo "T=$(gettop 2>/dev/null)"
+          echo "########## 自检结束 ##########"
           source build/envsetup.sh
-          # AOSP16 的 lunch 要求 <product>-<release>-<variant> 三段式，
-          # 从 lunch 列表里自动挑出 mt6853 的目标，避免格式硬编码
+          # AOSP16 的 lunch 要求 <product>-<release>-<variant> 三段式
           echo "=== release_configs 目录 ==="
           ls build/release/release_configs/ 2>/dev/null | head -20 || echo "(目录不存在)"
           # 文件名是 ap2a.textproto 形式，release 名要去掉 .textproto
