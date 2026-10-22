@@ -140,17 +140,16 @@ jobs:
           done
           cp $GITHUB_WORKSPACE/kernel-out/Image.gz $D/prebuilt/kernel
           chmod +x $D/vendorsetup.sh
-          # 把 device mk 直接放进 AOSP 的 product 目录，用 $(LOCAL_DIR) 注册，
-          # 完全绕开设备树自动扫描与相对路径解析
-          PD=build/make/target/product
-          cp $D/twrp_mt6853.mk $PD/twrp_mt6853.mk
-          AP=$PD/AndroidProducts.mk
-          grep -q '$(LOCAL_DIR)/twrp_mt6853.mk' "$AP" || \
-            printf '%s\n' 'PRODUCT_MAKEFILES += $(LOCAL_DIR)/twrp_mt6853.mk' >> "$AP"
-          echo "=== $AP 尾部 ==="
-          tail -4 "$AP"
-          echo "=== 是否有 twrp_mt6853.mk ==="
-          ls -la $PD/twrp_mt6853.mk
+          # 直接改 AOSP 的 product 搜索函数，让 _find-android-products-files
+          # 一定返回我们的 AndroidProducts.mk（不依赖 find / LOCAL_DIR / 追加顺序）
+          PM=build/make/core/product.mk
+          echo "=== product.mk 里的搜索定义 ==="
+          grep -n -A4 '_find-android-products-files' "$PM" | head -12
+          if ! grep -q 'device/oppo/mt6853/AndroidProducts.mk' "$PM"; then
+            sed -i 's|\$(SRC_TARGET_DIR)/product/AndroidProducts.mk|$(SRC_TARGET_DIR)/product/AndroidProducts.mk device/oppo/mt6853/AndroidProducts.mk|' "$PM"
+          fi
+          echo "=== 修改后 ==="
+          grep -n -A4 '_find-android-products-files' "$PM" | head -12
           echo "=== $D ==="
           ls -la $D
           echo "=== PRODUCT_MAKEFILES 指向的文件 ==="
