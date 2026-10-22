@@ -140,16 +140,17 @@ jobs:
           done
           cp $GITHUB_WORKSPACE/kernel-out/Image.gz $D/prebuilt/kernel
           chmod +x $D/vendorsetup.sh
-          # 强制把 product 注册进 AOSP 自带的 AndroidProducts.mk，
-          # 不依赖 _find-android-products-files 的自动扫描
-          AP=build/make/target/product/AndroidProducts.mk
-          if [ -f "$AP" ]; then
-            grep -q 'mt6853/twrp_mt6853.mk' "$AP" || \
-              printf '%s\n' 'PRODUCT_MAKEFILES += device/oppo/mt6853/twrp_mt6853.mk' >> "$AP"
-            tail -3 "$AP"
-          else
-            echo "WARN: $AP 不存在"
-          fi
+          # 把 device mk 直接放进 AOSP 的 product 目录，用 $(LOCAL_DIR) 注册，
+          # 完全绕开设备树自动扫描与相对路径解析
+          PD=build/make/target/product
+          cp $D/twrp_mt6853.mk $PD/twrp_mt6853.mk
+          AP=$PD/AndroidProducts.mk
+          grep -q '$(LOCAL_DIR)/twrp_mt6853.mk' "$AP" || \
+            printf '%s\n' 'PRODUCT_MAKEFILES += $(LOCAL_DIR)/twrp_mt6853.mk' >> "$AP"
+          echo "=== $AP 尾部 ==="
+          tail -4 "$AP"
+          echo "=== 是否有 twrp_mt6853.mk ==="
+          ls -la $PD/twrp_mt6853.mk
           echo "=== $D ==="
           ls -la $D
           echo "=== PRODUCT_MAKEFILES 指向的文件 ==="
