@@ -148,8 +148,7 @@ jobs:
           cp $D/twrp_mt6853.mk $PD/twrp_mt6853.mk
           AP=$PD/AndroidProducts.mk
           if ! grep -q 'twrp_mt6853.mk' "$AP"; then
-            printf '%s\n' 'PRODUCT_MAKEFILES += $(LOCAL_DIR)/twrp_mt6853.mk' >> "$AP"
-            printf '%s\n' 'COMMON_LUNCH_CHOICES += twrp_mt6853-trunk_staging-eng twrp_mt6853-trunk_staging-userdebug' >> "$AP"
+            printf '\nPRODUCT_MAKEFILES += $(LOCAL_DIR)/twrp_mt6853.mk\n' >> "$AP"
           fi
           echo "=== $AP 尾部 ==="
           tail -5 "$AP"
@@ -181,7 +180,9 @@ jobs:
           cp device/oppo/mt6853/twrp_mt6853.mk $PD/twrp_mt6853.mk
           AP=$PD/AndroidProducts.mk
           if ! grep -q 'twrp_mt6853.mk' "$AP"; then
-            printf '%s\n' 'PRODUCT_MAKEFILES += $(LOCAL_DIR)/twrp_mt6853.mk' >> "$AP"
+            # 该文件末尾是 "COMMON_LUNCH_CHOICES := \" 的续行，直接追加会被拼进它。
+            # 先输出一个空行打断续行，再追加 PRODUCT_MAKEFILES。
+            printf '\nPRODUCT_MAKEFILES += $(LOCAL_DIR)/twrp_mt6853.mk\n' >> "$AP"
           fi
           echo "--- 注册确认 ---"
           grep -n 'twrp_mt6853' "$AP" | head -3
