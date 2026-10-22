@@ -130,6 +130,15 @@ jobs:
           cp $GITHUB_WORKSPACE/kernel-out/Image.gz device/oppo/mt6853/prebuilt/kernel
           echo "=== device tree ==="
           ls -la device/oppo/mt6853/
+          echo "=== AndroidProducts.mk ==="
+          cat device/oppo/mt6853/AndroidProducts.mk
+          echo "=== 目标 mk 是否存在 ==="
+          ls -la device/oppo/mt6853/twrp_mt6853.mk || echo "MISSING twrp_mt6853.mk"
+          echo "=== AOSP 自己的搜索能否找到 AndroidProducts.mk ==="
+          find device vendor -maxdepth 6 -name AndroidProducts.mk 2>/dev/null | grep -i mt6853 || echo "AOSP find 找不到 mt6853 的 AndroidProducts.mk"
+          echo "=== vendor/twrp 是否 sync 到 ==="
+          ls -d vendor/twrp vendor/recovery 2>/dev/null || echo "vendor/twrp 与 vendor/recovery 都不存在"
+          ls vendor/twrp/config/common.mk 2>/dev/null || echo "vendor/twrp/config/common.mk 不存在"
           echo "=== prebuilt ==="
           ls -la device/oppo/mt6853/prebuilt/
 

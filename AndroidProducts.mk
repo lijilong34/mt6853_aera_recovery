@@ -1,11 +1,12 @@
 #
-# Copyright (C) 2026 The Android Open Source Project
-# Copyright (C) 2024 The OrangeFox Recovery Project
-# SPDX-License-Identifier: Apache-2.0
+# AERA Recovery device tree for mt6853
+#
+# 不用 $(LOCAL_DIR)：AOSP16 下该变量在 AndroidProducts.mk 被 include 时可能未设置，
+# 会导致 PRODUCT_MAKEFILES 指向不存在的路径 -> "Don't have a product spec"
 #
 
 PRODUCT_MAKEFILES := \
-    $(LOCAL_DIR)/twrp_mt6853.mk
+    device/oppo/mt6853/twrp_mt6853.mk
 
 COMMON_LUNCH_CHOICES := \
     twrp_mt6853-user \
