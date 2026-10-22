@@ -193,24 +193,26 @@ jobs:
           # 文件名是 ap2a.textproto 形式，release 名要去掉 .textproto
           RELEASES=$(ls build/release/release_configs/*.textproto 2>/dev/null | sed 's|.*/||;s|\.textproto$||' | grep -vE '^(eng|user|userdebug|root)$' | sort -r)
           echo "候选 release: $(echo $RELEASES)"
+          # lunch 会走 build_build_var_cache(--dumpvars-mode)，在自定义 product 上失败。
+          # 改用环境变量直接构建，跳过 lunch。
           set +e
           OK=
           for R in $RELEASES; do
-            echo "=== 尝试 release: $R ==="
-            if lunch "twrp_mt6853-${R}-eng" </dev/null 2>&1 | tail -5; then
-              if [ -n "$(get_build_var TARGET_DEVICE 2>/dev/null)" ]; then
-                echo "OK release=$R"; OK="$R"; break
-              fi
+            echo "=== 用 release $R 直接设置环境构建 ==="
+            export TARGET_PRODUCT=twrp_mt6853
+            export TARGET_RELEASE=$R
+            export TARGET_BUILD_VARIANT=eng
+            m recoveryimage -j$(nproc) > /tmp/aera_build_$R.log 2>&1
+            rc=$?
+            tail -20 /tmp/aera_build_$R.log
+            if [ $rc -eq 0 ]; then
+              echo "BUILD_OK release=$R"; OK="$R"; break
             fi
-            echo "release $R 不可用"
+            echo "release $R 构建失败"
           done
           set -e
-          if [ -z "$OK" ]; then echo "ERROR: 所有 release 都失败"; exit 1; fi
-          echo "最终使用: twrp_mt6853-${OK}-eng"
-          set -x
-          lunch "twrp_mt6853-${OK}-eng" </dev/null
-          set +x
-          mka recoveryimage -j$(nproc)
+          if [ -z "$OK" ]; then echo "ERROR: 所有 release 都构建失败"; exit 1; fi
+          echo "构建成功, release=$OK"
           echo "=== AERA 构建成功 ==="
 
       - name: Collect recovery image
