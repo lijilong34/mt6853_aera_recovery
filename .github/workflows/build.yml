@@ -123,11 +123,14 @@ jobs:
       - name: Inject mt6853 device tree + kernel
         run: |
           cd ~/aera
-          mkdir -p device/oppo
-          cp -r $GITHUB_WORKSPACE device/oppo/mt6853
-          rm -rf device/oppo/mt6853/.git device/oppo/mt6853/.github
+          mkdir -p device/oppo/mt6853
+          # 只同步设备树文件，排除 .git / .github / kernel 编译目录
+          rsync -a --delete             --exclude='.git' --exclude='.github' --exclude='kernel'             --exclude='kernel-out' --exclude='out-img' --exclude='*.zip'             $GITHUB_WORKSPACE/ device/oppo/mt6853/
           mkdir -p device/oppo/mt6853/prebuilt
           cp $GITHUB_WORKSPACE/kernel-out/Image.gz device/oppo/mt6853/prebuilt/kernel
+          echo "=== device tree ==="
+          ls -la device/oppo/mt6853/
+          echo "=== prebuilt ==="
           ls -la device/oppo/mt6853/prebuilt/
 
       - name: Show available lunch targets
@@ -145,15 +148,25 @@ jobs:
           # 从 lunch 列表里自动挑出 mt6853 的目标，避免格式硬编码
           echo "=== release_configs 目录 ==="
           ls build/release/release_configs/ 2>/dev/null | head -20 || echo "(目录不存在)"
-          RELEASE=$(ls build/release/release_configs/*.mk 2>/dev/null | head -1 | sed 's|.*/||;s|\.mk$||')
-          if [ -z "$RELEASE" ]; then
-            RELEASE=$(ls build/release/release_configs/ 2>/dev/null | head -1 | sed 's|\.mk$||')
-          fi
-          if [ -z "$RELEASE" ]; then RELEASE=trunk; fi
-          echo "使用 release: $RELEASE"
-          echo "=== lunch ==="
+          # 文件名是 ap2a.textproto 形式，release 名要去掉 .textproto
+          RELEASES=$(ls build/release/release_configs/*.textproto 2>/dev/null | sed 's|.*/||;s|\.textproto$||' | grep -vE '^(eng|user|userdebug|root)$' | sort -r)
+          echo "候选 release: $(echo $RELEASES)"
+          set +e
+          OK=
+          for R in $RELEASES; do
+            echo "=== 尝试 release: $R ==="
+            if lunch "twrp_mt6853-${R}-eng" </dev/null 2>&1 | tail -5; then
+              if [ -n "$(get_build_var TARGET_DEVICE 2>/dev/null)" ]; then
+                echo "OK release=$R"; OK="$R"; break
+              fi
+            fi
+            echo "release $R 不可用"
+          done
+          set -e
+          if [ -z "$OK" ]; then echo "ERROR: 所有 release 都失败"; exit 1; fi
+          echo "最终使用: twrp_mt6853-${OK}-eng"
           set -x
-          lunch "twrp_mt6853-${RELEASE}-eng" </dev/null
+          lunch "twrp_mt6853-${OK}-eng" </dev/null
           set +x
           mka recoveryimage -j$(nproc)
           echo "=== AERA 构建成功 ==="
