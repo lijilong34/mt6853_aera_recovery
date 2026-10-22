@@ -82,11 +82,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Free disk space on runner
+        run: |
+          echo "=== 清理前 ==="
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost \
+                      "$AGENT_TOOLSDIRECTORY" 2>/dev/null || true
+          sudo apt-get clean
+          echo "=== 清理后 ==="
+          df -h /
+
       - name: Install AOSP build deps
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
-            git python3 python3-pip openjdk-11-jdk-headless \
+            git python3 python3-pip openjdk-17-jdk-headless \
             bc bison flex libssl-dev libelf-dev zip unzip curl \
             gcc g++ make libncurses5 libtinfo5 rsync ccache \
             zlib1g-dev libxml2-utils xsltproc imagemagick
