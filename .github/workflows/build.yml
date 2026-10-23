@@ -189,9 +189,12 @@ jobs:
             # GitHub 免费 runner 只有 7GB 内存，AOSP16 soong 用 -j4 会 OOM(143)
             # 降到 -j2，并关闭 ccache 的多余内存占用
             export USE_CCACHE=0
-            m recoveryimage -j2 > /tmp/aera_build_$R.log 2>&1
-            rc=$?
-            tail -20 /tmp/aera_build_$R.log
+            # 输出实时打到 stdout（用 tee），避免 GitHub 丢日志后无法定位
+            set +e
+            m recoveryimage -j2 2>&1 | tee /tmp/aera_build_$R.log
+            rc=${PIPESTATUS[0]}
+            set -e
+            echo "=== 构建退出码: $rc ==="
             if [ $rc -eq 0 ]; then
               echo "BUILD_OK release=$R"; OK="$R"; break
             fi
